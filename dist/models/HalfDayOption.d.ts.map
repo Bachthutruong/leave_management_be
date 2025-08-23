@@ -1,0 +1,1 @@
+{"version":3,"file":"HalfDayOption.d.ts","sourceRoot":"","sources":["../../src/models/HalfDayOption.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,EAAE,EAAE,QAAQ,EAAU,MAAM,UAAU,CAAC;AAEtD,MAAM,WAAW,cAAe,SAAQ,QAAQ;IAC9C,IAAI,EAAE,SAAS,GAAG,WAAW,GAAG,SAAS,CAAC;IAC1C,KAAK,EAAE,MAAM,CAAC;IACd,SAAS,EAAE,IAAI,CAAC;IAChB,SAAS,EAAE,IAAI,CAAC;CACjB;;;;;;AAOD,wBAAoF"}

@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { authAdmin, authEmployee } from '../middleware/auth';
-import { uploadMultiple } from '../middleware/upload';
+import { uploadMultipleToCloudinary, deleteFromCloudinary } from '../middleware/cloudinaryUpload';
 import LeaveRequest from '../models/LeaveRequest';
 import Employee from '../models/Employee';
 import moment from 'moment';
@@ -22,7 +22,8 @@ router.get('/', authAdmin, async (req, res) => {
     const leaveRequests = await LeaveRequest.find(filter).sort({ createdAt: -1 });
     res.json(leaveRequests);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -32,7 +33,8 @@ router.get('/my-requests', authEmployee, async (req: any, res) => {
     const leaveRequests = await LeaveRequest.find({ employeeId: req.employee.employeeId }).sort({ createdAt: -1 });
     res.json(leaveRequests);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -43,12 +45,13 @@ router.get('/:id', authAdmin, async (req, res) => {
     if (!leaveRequest) return res.status(404).json({ message: 'Leave request not found' });
     res.json(leaveRequest);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
 // Create leave request (employee)
-router.post('/', authEmployee, uploadMultiple, [
+router.post('/', authEmployee, uploadMultipleToCloudinary, [
   body('leaveType').isIn(['full_day', 'half_day', 'hourly']).withMessage('Invalid leave type'),
   body('startDate').isISO8601().withMessage('Valid start date is required'),
   body('endDate').isISO8601().withMessage('Valid end date is required'),
@@ -62,7 +65,16 @@ router.post('/', authEmployee, uploadMultiple, [
     if (leaveType === 'half_day' && !halfDayType) return res.status(400).json({ message: 'Half day type is required' });
     const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    const attachments = req.files ? req.files.map((file: any) => file.filename) : [];
+    
+    // Process Cloudinary uploads
+    const attachments = req.files ? req.files.map((file: any) => ({
+      url: file.path, // Cloudinary URL
+      publicId: file.filename, // Cloudinary public ID
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype
+    })) : [];
+    
     const leaveRequest = new LeaveRequest({
       employeeId: req.employee.employeeId,
       employeeName: employee.name,
@@ -79,7 +91,9 @@ router.post('/', authEmployee, uploadMultiple, [
     await leaveRequest.save();
     res.status(201).json(leaveRequest);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error creating leave request:', errorMessage);
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -112,7 +126,8 @@ router.post('/admin', authAdmin, [
     await leaveRequest.save();
     res.status(201).json(leaveRequest);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -132,7 +147,8 @@ router.put('/:id/details', authAdmin, async (req, res) => {
     await leaveRequest.save();
     res.json(leaveRequest);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -153,7 +169,39 @@ router.put('/:id', authAdmin, [
     await leaveRequest.save();
     res.json(leaveRequest);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
+  }
+});
+
+// Delete specific attachment from leave request
+router.delete('/:id/attachments/:publicId', authAdmin, async (req, res) => {
+  try {
+    const { id, publicId } = req.params;
+    const leaveRequest = await LeaveRequest.findById(id);
+    if (!leaveRequest) return res.status(404).json({ message: 'Leave request not found' });
+    
+    // Find and remove attachment
+    const attachmentIndex = leaveRequest.attachments.findIndex(att => att.publicId === publicId);
+    if (attachmentIndex === -1) return res.status(404).json({ message: 'Attachment not found' });
+    
+    // Delete from Cloudinary
+    try {
+      await deleteFromCloudinary(publicId);
+            } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          console.error('Error deleting file from Cloudinary:', errorMessage);
+        }
+    
+    // Remove from database
+    leaveRequest.attachments.splice(attachmentIndex, 1);
+    await leaveRequest.save();
+    
+    res.json({ message: 'Attachment deleted successfully' });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error deleting attachment:', errorMessage);
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -162,10 +210,25 @@ router.delete('/:id', authAdmin, async (req, res) => {
   try {
     const leaveRequest = await LeaveRequest.findById(req.params.id);
     if (!leaveRequest) return res.status(404).json({ message: 'Leave request not found' });
+    
+    // Delete attachments from Cloudinary
+    if (leaveRequest.attachments && leaveRequest.attachments.length > 0) {
+      for (const attachment of leaveRequest.attachments) {
+        try {
+          await deleteFromCloudinary(attachment.publicId);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          console.error('Error deleting file from Cloudinary:', errorMessage);
+        }
+      }
+    }
+    
     await leaveRequest.deleteOne();
     res.json({ message: 'Leave request deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error deleting leave request:', errorMessage);
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -217,7 +280,8 @@ router.get('/calendar/company', async (req, res) => {
     
     res.json(Object.values(calendarEvents));
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 
@@ -282,7 +346,8 @@ router.get('/statistics/summary', authAdmin, async (req, res) => {
     }, {});
     res.json(Object.values(statistics));
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 });
 

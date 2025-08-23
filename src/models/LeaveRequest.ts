@@ -1,5 +1,13 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+interface IAttachment {
+  url: string;
+  publicId: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+}
+
 export interface ILeaveRequest extends Document {
   employeeId: string;
   employeeName: string;
@@ -11,7 +19,7 @@ export interface ILeaveRequest extends Document {
   startTime?: string;
   endTime?: string;
   reason?: string;
-  attachments: string[];
+  attachments: IAttachment[];
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
@@ -71,7 +79,26 @@ const LeaveRequestSchema = new Schema<ILeaveRequest>({
     trim: true
   },
   attachments: [{
-    type: String
+    url: {
+      type: String,
+      required: true
+    },
+    publicId: {
+      type: String,
+      required: true
+    },
+    originalName: {
+      type: String,
+      required: true
+    },
+    size: {
+      type: Number,
+      required: true
+    },
+    mimetype: {
+      type: String,
+      required: true
+    }
   }],
   status: {
     type: String,
