@@ -12,6 +12,8 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const employees_1 = __importDefault(require("./routes/employees"));
 const leaveRequests_1 = __importDefault(require("./routes/leaveRequests"));
 const halfDayOptions_1 = __importDefault(require("./routes/halfDayOptions"));
+const departments_1 = __importDefault(require("./routes/departments"));
+const positions_1 = __importDefault(require("./routes/positions"));
 // Load environment variables
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -45,6 +47,8 @@ app.use('/api/auth', auth_1.default);
 app.use('/api/employees', employees_1.default);
 app.use('/api/leave-requests', leaveRequests_1.default);
 app.use('/api/half-day-options', halfDayOptions_1.default);
+app.use('/api/departments', departments_1.default);
+app.use('/api/positions', positions_1.default);
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });

@@ -7,6 +7,8 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const Admin_1 = __importDefault(require("../models/Admin"));
 const Employee_1 = __importDefault(require("../models/Employee"));
 const HalfDayOption_1 = __importDefault(require("../models/HalfDayOption"));
+const Department_1 = __importDefault(require("../models/Department"));
+const Position_1 = __importDefault(require("../models/Position"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leave_management';
@@ -19,6 +21,8 @@ async function seedData() {
         await Admin_1.default.deleteMany({});
         await Employee_1.default.deleteMany({});
         await HalfDayOption_1.default.deleteMany({});
+        await Department_1.default.deleteMany({});
+        await Position_1.default.deleteMany({});
         console.log('Cleared existing data');
         // Create default admin
         const admin = new Admin_1.default({
@@ -42,6 +46,34 @@ async function seedData() {
             await halfDayOption.save();
         }
         console.log('Created half-day options');
+        // Create default departments
+        const departments = [
+            { name: 'IT', code: 'IT', description: 'Information Technology Department' },
+            { name: 'HR', code: 'HR', description: 'Human Resources Department' },
+            { name: 'Sales', code: 'SALES', description: 'Sales Department' },
+            { name: 'Marketing', code: 'MKT', description: 'Marketing Department' },
+            { name: 'Finance', code: 'FIN', description: 'Finance Department' },
+            { name: 'Operations', code: 'OPS', description: 'Operations Department' },
+            { name: 'Customer Service', code: 'CS', description: 'Customer Service Department' },
+        ];
+        for (const deptData of departments) {
+            const department = new Department_1.default(deptData);
+            await department.save();
+        }
+        console.log('Created default departments');
+        // Create default positions
+        const positions = [
+            { name: 'Employee', code: 'EMP', description: 'Regular Employee' },
+            { name: 'Team Lead', code: 'TL', description: 'Team Leader' },
+            { name: 'Manager', code: 'MGR', description: 'Department Manager' },
+            { name: 'Director', code: 'DIR', description: 'Director' },
+            { name: 'Intern', code: 'INT', description: 'Intern' },
+        ];
+        for (const posData of positions) {
+            const position = new Position_1.default(posData);
+            await position.save();
+        }
+        console.log('Created default positions');
         // Create sample employees
         const employees = [
             {

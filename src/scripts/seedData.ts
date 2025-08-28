@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import Admin from '../models/Admin';
 import Employee from '../models/Employee';
 import HalfDayOption from '../models/HalfDayOption';
+import Department from '../models/Department';
+import Position from '../models/Position';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -19,6 +21,8 @@ async function seedData() {
     await Admin.deleteMany({});
     await Employee.deleteMany({});
     await HalfDayOption.deleteMany({});
+    await Department.deleteMany({});
+    await Position.deleteMany({});
     console.log('Cleared existing data');
 
     // Create default admin
@@ -45,6 +49,38 @@ async function seedData() {
       await halfDayOption.save();
     }
     console.log('Created half-day options');
+
+    // Create default departments
+    const departments = [
+      { name: 'IT', code: 'IT', description: 'Information Technology Department' },
+      { name: 'HR', code: 'HR', description: 'Human Resources Department' },
+      { name: 'Sales', code: 'SALES', description: 'Sales Department' },
+      { name: 'Marketing', code: 'MKT', description: 'Marketing Department' },
+      { name: 'Finance', code: 'FIN', description: 'Finance Department' },
+      { name: 'Operations', code: 'OPS', description: 'Operations Department' },
+      { name: 'Customer Service', code: 'CS', description: 'Customer Service Department' },
+    ];
+
+    for (const deptData of departments) {
+      const department = new Department(deptData);
+      await department.save();
+    }
+    console.log('Created default departments');
+
+    // Create default positions
+    const positions = [
+      { name: 'Employee', code: 'EMP', description: 'Regular Employee' },
+      { name: 'Team Lead', code: 'TL', description: 'Team Leader' },
+      { name: 'Manager', code: 'MGR', description: 'Department Manager' },
+      { name: 'Director', code: 'DIR', description: 'Director' },
+      { name: 'Intern', code: 'INT', description: 'Intern' },
+    ];
+
+    for (const posData of positions) {
+      const position = new Position(posData);
+      await position.save();
+    }
+    console.log('Created default positions');
 
     // Create sample employees
     const employees = [

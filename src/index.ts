@@ -8,6 +8,8 @@ import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import leaveRequestRoutes from './routes/leaveRequests';
 import halfDayOptionRoutes from './routes/halfDayOptions';
+import departmentRoutes from './routes/departments';
+import positionRoutes from './routes/positions';
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +51,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/leave-requests', leaveRequestRoutes);
 app.use('/api/half-day-options', halfDayOptionRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/positions', positionRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
