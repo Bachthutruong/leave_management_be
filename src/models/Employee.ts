@@ -1,16 +1,24 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IEmployee extends Document {
+  employeeId?: string;
   phone: string;
   name: string;
   department: string;
   licensePlate: string;
+  position?: string;
+  email?: string;
   status: 'active' | 'inactive';
+  joinDate?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const EmployeeSchema = new Schema<IEmployee>({
+  employeeId: {
+    type: String,
+    trim: true
+  },
   phone: {
     type: String,
     required: true,
@@ -29,13 +37,26 @@ const EmployeeSchema = new Schema<IEmployee>({
   },
   licensePlate: {
     type: String,
-    required: true,
+    required: true, 
     trim: true
+  },
+  position: {
+    type: String,
+    trim: true
+  },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    required: false
   },
   status: {
     type: String,
     enum: ['active', 'inactive'],
     default: 'active'
+  },
+  joinDate: {
+    type: String
   }
 }, {
   timestamps: true

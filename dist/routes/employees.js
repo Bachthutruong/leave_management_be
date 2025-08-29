@@ -43,23 +43,43 @@ router.post('/', auth_1.authAdmin, [
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-        const { phone, name, department, licensePlate } = req.body;
+        const { phone, name, department, licensePlate, employeeId, position, email, status, joinDate } = req.body;
         // Check if phone already exists
         const existingEmployee = await Employee_1.default.findOne({ phone });
         if (existingEmployee) {
             return res.status(400).json({ message: 'Phone already exists' });
         }
-        const employee = new Employee_1.default({
+        // Check if employeeId already exists (if provided)
+        if (employeeId) {
+            const existingEmployeeId = await Employee_1.default.findOne({ employeeId });
+            if (existingEmployeeId) {
+                return res.status(400).json({ message: 'Employee ID already exists' });
+            }
+        }
+        // Chỉ set các trường bắt buộc và các trường có giá trị
+        const employeeData = {
             phone,
             name,
             department,
-            licensePlate
-        });
+            licensePlate,
+            status: status || 'active'
+        };
+        // Chỉ thêm các trường optional nếu có giá trị
+        if (employeeId && employeeId.trim())
+            employeeData.employeeId = employeeId;
+        if (position && position.trim())
+            employeeData.position = position;
+        if (email && email.trim())
+            employeeData.email = email;
+        if (joinDate && joinDate.trim())
+            employeeData.joinDate = joinDate;
+        const employee = new Employee_1.default(employeeData);
         await employee.save();
         res.status(201).json(employee);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error creating employee:', error);
+        res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
 // Update employee
