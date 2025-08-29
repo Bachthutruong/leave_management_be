@@ -9,7 +9,7 @@ interface IAttachment {
 }
 
 export interface ILeaveRequest extends Document {
-  employeeId: string;
+  phone: string;
   employeeName: string;
   department: string;
   leaveType: 'full_day' | 'half_day' | 'hourly';
@@ -29,7 +29,7 @@ export interface ILeaveRequest extends Document {
 }
 
 const LeaveRequestSchema = new Schema<ILeaveRequest>({
-  employeeId: {
+  phone: {
     type: String,
     required: true,
     ref: 'Employee'

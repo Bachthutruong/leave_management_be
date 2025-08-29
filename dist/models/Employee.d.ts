@@ -1,13 +1,10 @@
 import mongoose, { Document } from 'mongoose';
 export interface IEmployee extends Document {
-    employeeId: string;
+    phone: string;
     name: string;
     department: string;
-    position: string;
-    email: string;
-    phone: string;
+    licensePlate: string;
     status: 'active' | 'inactive';
-    joinDate: Date;
     createdAt: Date;
     updatedAt: Date;
 }

@@ -30,12 +30,10 @@ router.get('/:id', authAdmin, async (req, res) => {
 
 // Create new employee
 router.post('/', authAdmin, [
-  body('employeeId').notEmpty().withMessage('Employee ID is required'),
+  body('phone').notEmpty().withMessage('Phone is required'),
   body('name').notEmpty().withMessage('Name is required'),
   body('department').notEmpty().withMessage('Department is required'),
-  body('position').notEmpty().withMessage('Position is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').notEmpty().withMessage('Phone is required')
+  body('licensePlate').notEmpty().withMessage('License plate is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -43,27 +41,19 @@ router.post('/', authAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { employeeId, name, department, position, email, phone } = req.body;
+    const { phone, name, department, licensePlate } = req.body;
 
-    // Check if employee ID already exists
-    const existingEmployee = await Employee.findOne({ employeeId });
+    // Check if phone already exists
+    const existingEmployee = await Employee.findOne({ phone });
     if (existingEmployee) {
-      return res.status(400).json({ message: 'Employee ID already exists' });
-    }
-
-    // Check if email already exists
-    const existingEmail = await Employee.findOne({ email });
-    if (existingEmail) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(400).json({ message: 'Phone already exists' });
     }
 
     const employee = new Employee({
-      employeeId,
+      phone,
       name,
       department,
-      position,
-      email,
-      phone
+      licensePlate
     });
 
     await employee.save();
@@ -77,9 +67,7 @@ router.post('/', authAdmin, [
 router.put('/:id', authAdmin, [
   body('name').notEmpty().withMessage('Name is required'),
   body('department').notEmpty().withMessage('Department is required'),
-  body('position').notEmpty().withMessage('Position is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').notEmpty().withMessage('Phone is required')
+  body('licensePlate').notEmpty().withMessage('License plate is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -87,24 +75,23 @@ router.put('/:id', authAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, department, position, email, phone, status } = req.body;
+    const { name, department, licensePlate, status } = req.body;
 
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    // Check if email already exists for another employee
-    const existingEmail = await Employee.findOne({ email, _id: { $ne: req.params.id } });
-    if (existingEmail) {
-      return res.status(400).json({ message: 'Email already exists' });
+    // Check if phone already exists for another employee
+    const existingPhone = await Employee.findOne({ phone: req.body.phone, _id: { $ne: req.params.id } });
+    if (existingPhone) {
+      return res.status(400).json({ message: 'Phone already exists' });
     }
 
     employee.name = name;
     employee.department = department;
-    employee.position = position;
-    employee.email = email;
-    employee.phone = phone;
+    employee.licensePlate = licensePlate;
+    if (req.body.phone) employee.phone = req.body.phone;
     if (status) employee.status = status;
 
     await employee.save();

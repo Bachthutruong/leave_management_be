@@ -7,7 +7,7 @@ interface IAttachment {
     mimetype: string;
 }
 export interface ILeaveRequest extends Document {
-    employeeId: string;
+    phone: string;
     employeeName: string;
     department: string;
     leaveType: 'full_day' | 'half_day' | 'hourly';

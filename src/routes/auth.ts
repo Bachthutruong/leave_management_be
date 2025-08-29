@@ -54,9 +54,9 @@ router.post('/admin/login', [
   }
 });
 
-// Employee authentication by employee ID
+// Employee authentication by phone
 router.post('/employee/auth', [
-  body('employeeId').notEmpty().withMessage('Employee ID is required')
+  body('phone').notEmpty().withMessage('Phone is required')
 ], async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
@@ -64,17 +64,17 @@ router.post('/employee/auth', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { employeeId } = req.body;
+    const { phone } = req.body;
 
-    const employee = await Employee.findOne({ employeeId, status: 'active' });
+    const employee = await Employee.findOne({ phone, status: 'active' });
     if (!employee) {
-      return res.status(404).json({ message: 'Mã nhân viên không tồn tại' });
+      return res.status(404).json({ message: 'Số điện thoại không tồn tại' });
     }
 
     const token = jwt.sign(
       { 
         id: employee._id, 
-        employeeId: employee.employeeId,
+        phone: employee.phone,
         name: employee.name,
         department: employee.department
       },
@@ -86,11 +86,10 @@ router.post('/employee/auth', [
       token,
       employee: {
         id: employee._id,
-        employeeId: employee.employeeId,
+        phone: employee.phone,
         name: employee.name,
         department: employee.department,
-        position: employee.position,
-        email: employee.email
+        licensePlate: employee.licensePlate
       }
     });
   } catch (error) {

@@ -35,7 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
 const EmployeeSchema = new mongoose_1.Schema({
-    employeeId: {
+    phone: {
         type: String,
         required: true,
         unique: true,
@@ -51,19 +51,7 @@ const EmployeeSchema = new mongoose_1.Schema({
         required: true,
         trim: true
     },
-    position: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        lowercase: true
-    },
-    phone: {
+    licensePlate: {
         type: String,
         required: true,
         trim: true
@@ -72,11 +60,6 @@ const EmployeeSchema = new mongoose_1.Schema({
         type: String,
         enum: ['active', 'inactive'],
         default: 'active'
-    },
-    joinDate: {
-        type: Date,
-        required: true,
-        default: Date.now
     }
 }, {
     timestamps: true

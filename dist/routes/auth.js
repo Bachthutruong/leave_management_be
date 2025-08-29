@@ -47,23 +47,23 @@ router.post('/admin/login', [
         res.status(500).json({ message: 'Server error' });
     }
 });
-// Employee authentication by employee ID
+// Employee authentication by phone
 router.post('/employee/auth', [
-    (0, express_validator_1.body)('employeeId').notEmpty().withMessage('Employee ID is required')
+    (0, express_validator_1.body)('phone').notEmpty().withMessage('Phone is required')
 ], async (req, res) => {
     try {
         const errors = (0, express_validator_1.validationResult)(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-        const { employeeId } = req.body;
-        const employee = await Employee_1.default.findOne({ employeeId, status: 'active' });
+        const { phone } = req.body;
+        const employee = await Employee_1.default.findOne({ phone, status: 'active' });
         if (!employee) {
-            return res.status(404).json({ message: 'Mã nhân viên không tồn tại' });
+            return res.status(404).json({ message: 'Số điện thoại không tồn tại' });
         }
         const token = jsonwebtoken_1.default.sign({
             id: employee._id,
-            employeeId: employee.employeeId,
+            phone: employee.phone,
             name: employee.name,
             department: employee.department
         }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '24h' });
@@ -71,11 +71,10 @@ router.post('/employee/auth', [
             token,
             employee: {
                 id: employee._id,
-                employeeId: employee.employeeId,
+                phone: employee.phone,
                 name: employee.name,
                 department: employee.department,
-                position: employee.position,
-                email: employee.email
+                licensePlate: employee.licensePlate
             }
         });
     }

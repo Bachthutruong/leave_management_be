@@ -14,12 +14,12 @@ const router = express_1.default.Router();
 // Get all leave requests (admin)
 router.get('/', auth_1.authAdmin, async (req, res) => {
     try {
-        const { status, employeeId, startDate, endDate } = req.query;
+        const { status, phone, startDate, endDate } = req.query;
         let filter = {};
         if (status)
             filter.status = status;
-        if (employeeId)
-            filter.employeeId = employeeId;
+        if (phone)
+            filter.phone = phone;
         if (startDate && endDate) {
             filter.startDate = { $gte: new Date(startDate) };
             filter.endDate = { $lte: new Date(endDate) };
@@ -35,7 +35,7 @@ router.get('/', auth_1.authAdmin, async (req, res) => {
 // Get leave requests by employee (employee)
 router.get('/my-requests', auth_1.authEmployee, async (req, res) => {
     try {
-        const leaveRequests = await LeaveRequest_1.default.find({ employeeId: req.employee.employeeId }).sort({ createdAt: -1 });
+        const leaveRequests = await LeaveRequest_1.default.find({ phone: req.employee.phone }).sort({ createdAt: -1 });
         res.json(leaveRequests);
     }
     catch (error) {
@@ -73,7 +73,7 @@ router.post('/', auth_1.authEmployee, cloudinaryUpload_1.uploadMultipleToCloudin
             return res.status(400).json({ message: 'Start time and end time are required for hourly leave' });
         if (leaveType === 'half_day' && !halfDayType)
             return res.status(400).json({ message: 'Half day type is required' });
-        const employee = await Employee_1.default.findOne({ employeeId: req.employee.employeeId });
+        const employee = await Employee_1.default.findOne({ phone: req.employee.phone });
         if (!employee)
             return res.status(404).json({ message: 'Employee not found' });
         // Process Cloudinary uploads
@@ -85,7 +85,7 @@ router.post('/', auth_1.authEmployee, cloudinaryUpload_1.uploadMultipleToCloudin
             mimetype: file.mimetype
         })) : [];
         const leaveRequest = new LeaveRequest_1.default({
-            employeeId: req.employee.employeeId,
+            phone: req.employee.phone,
             employeeName: employee.name,
             department: employee.department,
             leaveType,
@@ -108,7 +108,7 @@ router.post('/', auth_1.authEmployee, cloudinaryUpload_1.uploadMultipleToCloudin
 });
 // Admin create leave for any employee
 router.post('/admin', auth_1.authAdmin, [
-    (0, express_validator_1.body)('employeeId').notEmpty(),
+    (0, express_validator_1.body)('phone').notEmpty(),
     (0, express_validator_1.body)('leaveType').isIn(['full_day', 'half_day', 'hourly']),
     (0, express_validator_1.body)('startDate').isISO8601(),
     (0, express_validator_1.body)('endDate').isISO8601(),
@@ -117,12 +117,12 @@ router.post('/admin', auth_1.authAdmin, [
         const errors = (0, express_validator_1.validationResult)(req);
         if (!errors.isEmpty())
             return res.status(400).json({ errors: errors.array() });
-        const { employeeId, leaveType, startDate, endDate, startTime, endTime, reason, halfDayType } = req.body;
-        const employee = await Employee_1.default.findOne({ employeeId });
+        const { phone, leaveType, startDate, endDate, startTime, endTime, reason, halfDayType } = req.body;
+        const employee = await Employee_1.default.findOne({ phone });
         if (!employee)
             return res.status(404).json({ message: 'Employee not found' });
         const leaveRequest = new LeaveRequest_1.default({
-            employeeId,
+            phone,
             employeeName: employee.name,
             department: employee.department,
             leaveType,
@@ -284,7 +284,7 @@ router.get('/calendar/company', async (req, res) => {
                     };
                 }
                 calendarEvents[dateStr].events.push({
-                    employeeId: request.employeeId,
+                    phone: request.phone,
                     employeeName: request.employeeName,
                     department: request.department,
                     leaveType: request.leaveType,
@@ -304,7 +304,7 @@ router.get('/calendar/company', async (req, res) => {
 // Statistics summary (month/year)
 router.get('/statistics/summary', auth_1.authAdmin, async (req, res) => {
     try {
-        const { year, month, quarter, employeeId } = req.query;
+        const { year, month, quarter, phone } = req.query;
         let filter = { status: 'approved' };
         if (year && quarter) {
             const q = parseInt(quarter);
@@ -328,16 +328,16 @@ router.get('/statistics/summary', auth_1.authAdmin, async (req, res) => {
             filter.startDate = { $lte: endDate };
             filter.endDate = { $gte: startDate };
         }
-        if (employeeId)
-            filter.employeeId = employeeId;
+        if (phone)
+            filter.phone = phone;
         const leaveRequests = await LeaveRequest_1.default.find(filter);
         const statistics = leaveRequests.reduce((acc, request) => {
-            const empId = request.employeeId;
+            const empPhone = request.phone;
             const employeeName = request.employeeName;
             const department = request.department;
-            if (!acc[empId]) {
-                acc[empId] = {
-                    employeeId: empId,
+            if (!acc[empPhone]) {
+                acc[empPhone] = {
+                    phone: empPhone,
                     employeeName,
                     department,
                     totalDays: 0,
@@ -349,18 +349,18 @@ router.get('/statistics/summary', auth_1.authAdmin, async (req, res) => {
             }
             const daysDiff = (0, moment_1.default)(request.endDate).diff((0, moment_1.default)(request.startDate), 'days') + 1;
             if (request.leaveType === 'full_day') {
-                acc[empId].totalDays += daysDiff;
-                acc[empId].fullDays += daysDiff;
+                acc[empPhone].totalDays += daysDiff;
+                acc[empPhone].fullDays += daysDiff;
             }
             else if (request.leaveType === 'half_day') {
-                acc[empId].totalDays += daysDiff * 0.5;
-                acc[empId].halfDays += daysDiff * 0.5;
+                acc[empPhone].totalDays += daysDiff * 0.5;
+                acc[empPhone].halfDays += daysDiff * 0.5;
             }
             else if (request.leaveType === 'hourly') {
                 if (request.startTime && request.endTime) {
                     const hoursDiff = (0, moment_1.default)(request.endTime, 'HH:mm').diff((0, moment_1.default)(request.startTime, 'HH:mm'), 'hours', true);
-                    acc[empId].totalHours += hoursDiff * daysDiff;
-                    acc[empId].hourlyLeaves += hoursDiff * daysDiff;
+                    acc[empPhone].totalHours += hoursDiff * daysDiff;
+                    acc[empPhone].hourlyLeaves += hoursDiff * daysDiff;
                 }
             }
             return acc;
