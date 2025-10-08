@@ -7,6 +7,7 @@ export interface IEmployee extends Document {
     licensePlate: string;
     position?: string;
     email?: string;
+    role?: 'employee' | 'department_head';
     status: 'active' | 'inactive';
     joinDate?: string;
     createdAt: Date;

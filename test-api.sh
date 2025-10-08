@@ -27,3 +27,6 @@ echo "Test 3: Getting all employees"
 curl -X GET http://localhost:5002/api/employees \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YjA3ZjVkYmU1YzJlMjY0ZGQ3YmQ0MSIsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTY0MzgxMTEsImV4cCI6MTc1NjUyNDUxMX0.yVAyIWRglNFjK2j33cXygNXsfpaderpSBM47hnVzXv0" \
   -s | jq '.'
+
+
+

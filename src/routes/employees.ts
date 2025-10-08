@@ -41,7 +41,7 @@ router.post('/', authAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { phone, name, department, licensePlate, employeeId, position, email, status, joinDate } = req.body;
+    const { phone, name, department, licensePlate, employeeId, position, email, status, joinDate, role } = req.body;
 
     // Check if phone already exists
     const existingEmployee = await Employee.findOne({ phone });
@@ -63,7 +63,8 @@ router.post('/', authAdmin, [
       name,
       department,
       licensePlate,
-      status: status || 'active'
+      status: status || 'active',
+      role: role || 'employee'
     };
     
     // Chỉ thêm các trường optional nếu có giá trị
@@ -94,7 +95,7 @@ router.put('/:id', authAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, department, licensePlate, status } = req.body;
+    const { name, department, licensePlate, status, role } = req.body;
 
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
@@ -112,6 +113,7 @@ router.put('/:id', authAdmin, [
     employee.licensePlate = licensePlate;
     if (req.body.phone) employee.phone = req.body.phone;
     if (status) employee.status = status;
+    if (role) employee.role = role;
 
     await employee.save();
     res.json(employee);

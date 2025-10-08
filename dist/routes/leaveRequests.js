@@ -106,6 +106,80 @@ router.post('/', auth_1.authEmployee, cloudinaryUpload_1.uploadMultipleToCloudin
         res.status(500).json({ message: 'Server error', error: errorMessage });
     }
 });
+// Update own leave request (employee)
+router.put('/my/:id', auth_1.authEmployee, cloudinaryUpload_1.uploadMultipleToCloudinary, async (req, res) => {
+    try {
+        const leaveRequest = await LeaveRequest_1.default.findById(req.params.id);
+        if (!leaveRequest)
+            return res.status(404).json({ message: 'Leave request not found' });
+        // Only owner can edit
+        if (String(leaveRequest.phone) !== String(req.employee.phone)) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        // Only allow editing when status is pending
+        if (leaveRequest.status !== 'pending') {
+            return res.status(400).json({ message: 'Chỉ được sửa đơn ở trạng thái chờ duyệt (pending).' });
+        }
+        const { leaveType, halfDayType, startDate, endDate, startTime, endTime, reason, replaceAttachments } = req.body;
+        if (leaveType)
+            leaveRequest.leaveType = leaveType;
+        if (leaveType === 'half_day') {
+            if (halfDayType !== undefined)
+                leaveRequest.halfDayType = halfDayType;
+        }
+        else {
+            leaveRequest.halfDayType = undefined;
+        }
+        if (startDate)
+            leaveRequest.startDate = startDate;
+        if (endDate)
+            leaveRequest.endDate = endDate;
+        if (startTime !== undefined)
+            leaveRequest.startTime = startTime;
+        if (endTime !== undefined)
+            leaveRequest.endTime = endTime;
+        if (reason !== undefined)
+            leaveRequest.reason = reason;
+        // Handle removing specific attachments if requested
+        // Accept removePublicIds as JSON array or comma-separated string
+        let removePublicIds = [];
+        if (req.body.removePublicIds) {
+            try {
+                removePublicIds = Array.isArray(req.body.removePublicIds)
+                    ? req.body.removePublicIds
+                    : JSON.parse(req.body.removePublicIds);
+            }
+            catch {
+                removePublicIds = String(req.body.removePublicIds).split(',').map((s) => s.trim()).filter(Boolean);
+            }
+        }
+        if (removePublicIds.length > 0 && Array.isArray(leaveRequest.attachments)) {
+            leaveRequest.attachments = leaveRequest.attachments.filter((att) => !removePublicIds.includes(att.publicId));
+        }
+        // New uploads
+        const newAttachments = req.files ? req.files.map((file) => ({
+            url: file.path,
+            publicId: file.filename,
+            originalName: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype
+        })) : [];
+        if (newAttachments.length > 0) {
+            if (replaceAttachments === 'true') {
+                leaveRequest.attachments = newAttachments;
+            }
+            else {
+                leaveRequest.attachments = [...(leaveRequest.attachments || []), ...newAttachments];
+            }
+        }
+        await leaveRequest.save();
+        res.json(leaveRequest);
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        res.status(500).json({ message: 'Server error', error: errorMessage });
+    }
+});
 // Admin create leave for any employee
 router.post('/admin', auth_1.authAdmin, [
     (0, express_validator_1.body)('phone').notEmpty(),
@@ -253,11 +327,17 @@ router.delete('/:id', auth_1.authAdmin, async (req, res) => {
         res.status(500).json({ message: 'Server error', error: errorMessage });
     }
 });
-// Company calendar
-router.get('/calendar/company', async (req, res) => {
+// Company calendar (admin and department heads)
+router.get('/calendar/company', auth_1.authEmployee, async (req, res) => {
     try {
         const { year, month } = req.query;
-        let filter = { status: 'approved' };
+        // Only admins (via admin token) or department heads (employee token with role) can view company calendar
+        const isDepartmentHead = req.employee && (req.employee.role === 'department_head');
+        if (!isDepartmentHead) {
+            return res.status(403).json({ message: 'Forbidden: department head only' });
+        }
+        // Department head should see all statuses
+        let filter = {};
         if (year && month) {
             const monthStr = String(month).padStart(2, '0');
             const startDate = (0, moment_1.default)(`${year}-${monthStr}-01`).startOf('month').toDate();
@@ -295,6 +375,117 @@ router.get('/calendar/company', async (req, res) => {
             }
         });
         res.json(Object.values(calendarEvents));
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        res.status(500).json({ message: 'Server error', error: errorMessage });
+    }
+});
+// Company calendar for admins
+router.get('/calendar/company-admin', auth_1.authAdmin, async (req, res) => {
+    try {
+        const { year, month } = req.query;
+        // Admin should see all statuses
+        let filter = {};
+        if (year && month) {
+            const monthStr = String(month).padStart(2, '0');
+            const startDate = (0, moment_1.default)(`${year}-${monthStr}-01`).startOf('month').toDate();
+            const endDate = (0, moment_1.default)(`${year}-${monthStr}-01`).endOf('month').toDate();
+            filter.startDate = { $lte: endDate };
+            filter.endDate = { $gte: startDate };
+        }
+        const leaveRequests = await LeaveRequest_1.default.find(filter)
+            .select('employeeName department leaveType halfDayType startDate endDate startTime endTime phone')
+            .sort({ startDate: 1 });
+        const calendarEvents = {};
+        leaveRequests.forEach(request => {
+            const startDate = (0, moment_1.default)(request.startDate);
+            const endDate = (0, moment_1.default)(request.endDate);
+            const daysDiff = endDate.diff(startDate, 'days');
+            for (let i = 0; i <= daysDiff; i++) {
+                const currentDate = startDate.clone().add(i, 'days');
+                const dateStr = currentDate.format('YYYY-MM-DD');
+                if (!calendarEvents[dateStr]) {
+                    calendarEvents[dateStr] = { date: dateStr, events: [] };
+                }
+                calendarEvents[dateStr].events.push({
+                    phone: request.phone,
+                    employeeName: request.employeeName,
+                    department: request.department,
+                    leaveType: request.leaveType,
+                    halfDayType: request.halfDayType,
+                    startTime: request.startTime,
+                    endTime: request.endTime
+                });
+            }
+        });
+        res.json(Object.values(calendarEvents));
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        res.status(500).json({ message: 'Server error', error: errorMessage });
+    }
+});
+// Personal calendar (employee sees own requests - all statuses)
+router.get('/calendar/my', auth_1.authEmployee, async (req, res) => {
+    try {
+        const { year, month } = req.query;
+        let filter = { phone: req.employee.phone };
+        if (year && month) {
+            const monthStr = String(month).padStart(2, '0');
+            const startDate = (0, moment_1.default)(`${year}-${monthStr}-01`).startOf('month').toDate();
+            const endDate = (0, moment_1.default)(`${year}-${monthStr}-01`).endOf('month').toDate();
+            filter.startDate = { $lte: endDate };
+            filter.endDate = { $gte: startDate };
+        }
+        const leaveRequests = await LeaveRequest_1.default.find(filter)
+            .select('employeeName department leaveType halfDayType startDate endDate startTime endTime phone')
+            .sort({ startDate: 1 });
+        const calendarEvents = {};
+        leaveRequests.forEach(request => {
+            const startDate = (0, moment_1.default)(request.startDate);
+            const endDate = (0, moment_1.default)(request.endDate);
+            const daysDiff = endDate.diff(startDate, 'days');
+            for (let i = 0; i <= daysDiff; i++) {
+                const currentDate = startDate.clone().add(i, 'days');
+                const dateStr = currentDate.format('YYYY-MM-DD');
+                if (!calendarEvents[dateStr]) {
+                    calendarEvents[dateStr] = { date: dateStr, events: [] };
+                }
+                calendarEvents[dateStr].events.push({
+                    phone: request.phone,
+                    employeeName: request.employeeName,
+                    department: request.department,
+                    leaveType: request.leaveType,
+                    halfDayType: request.halfDayType,
+                    startTime: request.startTime,
+                    endTime: request.endTime
+                });
+            }
+        });
+        res.json(Object.values(calendarEvents));
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        res.status(500).json({ message: 'Server error', error: errorMessage });
+    }
+});
+// Department Head - list all leave requests (similar to admin list)
+router.get('/list/company', auth_1.authEmployee, async (req, res) => {
+    try {
+        if (!req.employee || req.employee.role !== 'department_head') {
+            return res.status(403).json({ message: 'Forbidden: department head only' });
+        }
+        const { status, startDate, endDate } = req.query;
+        const filter = {};
+        if (status)
+            filter.status = status;
+        if (startDate && endDate) {
+            filter.startDate = { $gte: new Date(startDate) };
+            filter.endDate = { $lte: new Date(endDate) };
+        }
+        const leaveRequests = await LeaveRequest_1.default.find(filter).sort({ createdAt: -1 });
+        res.json(leaveRequests);
     }
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

@@ -8,6 +8,7 @@ export interface IEmployee extends Document {
   licensePlate: string;
   position?: string;
   email?: string;
+  role?: 'employee' | 'department_head';
   status: 'active' | 'inactive';
   joinDate?: string;
   createdAt: Date;
@@ -49,6 +50,11 @@ const EmployeeSchema = new Schema<IEmployee>({
     trim: true,
     lowercase: true,
     required: false
+  },
+  role: {
+    type: String,
+    enum: ['employee', 'department_head'],
+    default: 'employee'
   },
   status: {
     type: String,

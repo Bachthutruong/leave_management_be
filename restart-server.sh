@@ -15,3 +15,6 @@ sleep 5
 
 echo "Testing server health..."
 curl -s http://localhost:5002/api/health | jq '.' || echo "Server not ready yet"
+
+
+

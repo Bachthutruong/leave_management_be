@@ -43,7 +43,7 @@ router.post('/', auth_1.authAdmin, [
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-        const { phone, name, department, licensePlate, employeeId, position, email, status, joinDate } = req.body;
+        const { phone, name, department, licensePlate, employeeId, position, email, status, joinDate, role } = req.body;
         // Check if phone already exists
         const existingEmployee = await Employee_1.default.findOne({ phone });
         if (existingEmployee) {
@@ -62,7 +62,8 @@ router.post('/', auth_1.authAdmin, [
             name,
             department,
             licensePlate,
-            status: status || 'active'
+            status: status || 'active',
+            role: role || 'employee'
         };
         // Chỉ thêm các trường optional nếu có giá trị
         if (employeeId && employeeId.trim())
@@ -93,7 +94,7 @@ router.put('/:id', auth_1.authAdmin, [
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-        const { name, department, licensePlate, status } = req.body;
+        const { name, department, licensePlate, status, role } = req.body;
         const employee = await Employee_1.default.findById(req.params.id);
         if (!employee) {
             return res.status(404).json({ message: 'Employee not found' });
@@ -110,6 +111,8 @@ router.put('/:id', auth_1.authAdmin, [
             employee.phone = req.body.phone;
         if (status)
             employee.status = status;
+        if (role)
+            employee.role = role;
         await employee.save();
         res.json(employee);
     }

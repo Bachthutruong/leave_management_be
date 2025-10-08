@@ -76,7 +76,8 @@ router.post('/employee/auth', [
         id: employee._id, 
         phone: employee.phone,
         name: employee.name,
-        department: employee.department
+        department: employee.department,
+        role: employee.role || 'employee'
       },
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: '24h' }
@@ -89,7 +90,8 @@ router.post('/employee/auth', [
         phone: employee.phone,
         name: employee.name,
         department: employee.department,
-        licensePlate: employee.licensePlate
+        licensePlate: employee.licensePlate,
+        role: employee.role || 'employee'
       }
     });
   } catch (error) {

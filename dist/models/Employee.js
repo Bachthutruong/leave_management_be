@@ -70,6 +70,11 @@ const EmployeeSchema = new mongoose_1.Schema({
         lowercase: true,
         required: false
     },
+    role: {
+        type: String,
+        enum: ['employee', 'department_head'],
+        default: 'employee'
+    },
     status: {
         type: String,
         enum: ['active', 'inactive'],
