@@ -2,6 +2,10 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { authAdmin } from '../middleware/auth';
 import Employee from '../models/Employee';
+import multer from 'multer';
+import * as xlsx from 'xlsx';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -147,6 +151,121 @@ router.get('/department/:department', authAdmin, async (req, res) => {
     res.json(employees);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Import employees from Excel
+router.post('/import', authAdmin, upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    // Get data as array of arrays to handle potential empty top rows or finding headers manually
+    const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (!rawData || rawData.length === 0) {
+      return res.status(400).json({ message: 'Excel file is empty' });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
+
+    // Find header row
+    let headerRowIndex = -1;
+    let nameIdx = -1;
+    let plateIdx = -1;
+    let phoneIdx = -1;
+    let deptIdx = -1;
+
+    for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!Array.isArray(row)) continue;
+        
+        // Look for headers in this row
+        const mappedRow = row.map(cell => String(cell).trim());
+        
+        const nIdx = mappedRow.findIndex(c => c === '姓名');
+        const pIdx = mappedRow.findIndex(c => c === '車牌號碼');
+        const phIdx = mappedRow.findIndex(c => c === '電話號碼' || c === '電話');
+        const dIdx = mappedRow.findIndex(c => c === '部門' || c === '單位');
+
+        if (nIdx !== -1 && pIdx !== -1) {
+            headerRowIndex = i;
+            nameIdx = nIdx;
+            plateIdx = pIdx;
+            phoneIdx = phIdx;
+            deptIdx = dIdx;
+            break;
+        }
+    }
+
+    if (headerRowIndex === -1) {
+        return res.status(400).json({ 
+            message: 'Could not find header row. Please ensure columns "姓名", "車牌號碼" exist.'
+        });
+    }
+
+    // Process data rows
+    for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+      const row = rawData[i];
+      // Skip empty rows
+      if (!row || row.length === 0) continue;
+
+      try {
+        const name = nameIdx !== -1 ? row[nameIdx] : undefined;
+        const licensePlate = plateIdx !== -1 ? row[plateIdx] : undefined;
+        const phoneVal = phoneIdx !== -1 ? row[phoneIdx] : undefined;
+        const phone = phoneVal ? String(phoneVal).trim() : undefined;
+        const department = deptIdx !== -1 ? row[deptIdx] : undefined;
+
+        // Skip rows that look completely empty or miss critical data
+        if (!name && !licensePlate && !phone) continue;
+
+        if (!name || !licensePlate || !phone || !department) {
+          results.failed++;
+          results.errors.push(`Row ${i + 1}: Missing required fields. Found values - Name: ${name}, Phone: ${phone}, Dept: ${department}, Plate: ${licensePlate}`);
+          continue;
+        }
+
+        // Check if phone already exists
+        const existingEmployee = await Employee.findOne({ phone });
+        if (existingEmployee) {
+          results.failed++;
+          results.errors.push(`Row ${i + 1}: Phone ${phone} already exists`);
+          continue;
+        }
+
+        const newEmployee = new Employee({
+          name: String(name).trim(),
+          licensePlate: String(licensePlate).trim(),
+          phone,
+          department: String(department).trim(),
+          status: 'active',
+          role: 'employee'
+        });
+
+        await newEmployee.save();
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    }
+
+    res.json({
+      message: 'Import process completed',
+      results
+    });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ message: 'Server error during import' });
   }
 });
 
